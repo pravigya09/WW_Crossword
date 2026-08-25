@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold text-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-violet-600 text-white hover:bg-violet-700 focus:ring-violet-500 active:scale-95;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 focus:ring-slate-400 active:scale-95;
+  }
+  .btn-danger {
+    @apply btn bg-red-500 text-white hover:bg-red-600 focus:ring-red-400 active:scale-95;
+  }
+  .card {
+    @apply bg-white rounded-2xl border border-slate-100 shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all;
+  }
+}
+
+/* Crossword grid */
+.crossword-cell {
+  @apply relative flex items-center justify-center border border-slate-300 cursor-pointer select-none transition-colors duration-100;
+}
+
+.crossword-cell.active {
+  @apply bg-violet-100 border-violet-400;
+}
+
+.crossword-cell.active-word {
+  @apply bg-violet-50;
+}
+
+.crossword-cell.correct {
+  @apply bg-green-100 border-green-400;
+}
+
+.crossword-cell.incorrect {
+  @apply bg-red-50 border-red-300;
+}
+
+.crossword-cell .cell-number {
+  @apply absolute top-0.5 left-0.5 text-[9px] font-bold text-slate-500 leading-none;
+}
+
+.crossword-cell .cell-letter {
+  @apply text-sm font-bold text-slate-900 uppercase;
+}
+
+/* Mobile keyboard helper */
+.mobile-clue-bar {
+  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 z-40;
+}
