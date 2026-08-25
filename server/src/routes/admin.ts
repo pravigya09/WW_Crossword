@@ -116,14 +116,15 @@ adminRouter.get('/puzzles', requireAdmin, (_req: Request, res: Response) => {
 
 // GET /api/admin/puzzles/:id/stats — stats for a published puzzle
 adminRouter.get('/puzzles/:id/stats', requireAdmin, (req: Request, res: Response) => {
+  const testEmail = (process.env.TEST_EMAIL || 'test@ww.internal').toLowerCase();
   const stats = db.prepare(`
     SELECT
       COUNT(*) as total_attempts,
       COUNT(completed_at) as completions,
       AVG(CASE WHEN completed_at IS NOT NULL THEN time_taken_seconds END) as avg_time,
       AVG(CASE WHEN completed_at IS NOT NULL THEN score END) as avg_score
-    FROM attempts WHERE puzzle_id=?
-  `).get(req.params.id);
+    FROM attempts WHERE puzzle_id=? AND email != ?
+  `).get(req.params.id, testEmail);
   res.json(stats);
 });
 

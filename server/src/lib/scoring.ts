@@ -8,9 +8,8 @@ export function calculateScore(params: {
 
   let score = 1000;
 
-  // Time deduction: up to 300 points over first 10 minutes
-  const timeDeduction = Math.min(300, Math.floor(timeTakenSeconds / 2));
-  score -= timeDeduction;
+  // Time deduction: 1pt per 2 seconds, no cap — faster always scores higher
+  score -= Math.floor(timeTakenSeconds / 2);
 
   // Hint penalty: 50 points per hint used
   score -= hintsUsed * 50;
@@ -18,7 +17,7 @@ export function calculateScore(params: {
   // Wrong guess penalty: 10 points per wrong guess (capped at 200)
   score -= Math.min(200, wrongGuesses * 10);
 
-  // Bonus for finishing before time limit
+  // Bonus for finishing in under half the time limit
   if (timeLimitSeconds && timeTakenSeconds < timeLimitSeconds * 0.5) {
     score += 100;
   }

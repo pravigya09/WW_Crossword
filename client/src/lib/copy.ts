@@ -51,7 +51,7 @@ export const copy = {
   // Scoring explanation
   scoringExplain: [
     "Start with 1000 points",
-    "−2 pts per second elapsed (max −300)",
+    "−1 pt per 2 seconds elapsed (no cap — faster always scores higher)",
     "−50 pts per hint used",
     "−10 pts per wrong guess (max −200)",
     "+100 bonus for finishing in under half the time limit",

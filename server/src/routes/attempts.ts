@@ -5,6 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const attemptRouter = Router();
 
+const TEST_EMAIL = (process.env.TEST_EMAIL || 'test@ww.internal').toLowerCase();
+
 // POST /api/attempts — start a new attempt
 attemptRouter.post('/', (req: Request, res: Response) => {
   const { puzzleId, name, email } = req.body as { puzzleId: string; name: string; email: string };
@@ -30,14 +32,19 @@ attemptRouter.post('/', (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Puzzle has closed', code: 'CLOSED' });
   }
 
-  // Check for existing attempt
-  const existing = db.prepare('SELECT * FROM attempts WHERE puzzle_id=? AND email=?').get(puzzleId, emailNorm) as any;
-  if (existing) {
-    return res.status(409).json({
-      error: 'Already attempted',
-      code: 'ALREADY_ATTEMPTED',
-      attempt: sanitizeAttempt(existing),
-    });
+  // Test account: wipe previous attempt so it can always replay
+  if (emailNorm === TEST_EMAIL) {
+    db.prepare('DELETE FROM attempts WHERE puzzle_id=? AND email=?').run(puzzleId, emailNorm);
+  } else {
+    // Regular players: enforce single attempt
+    const existing = db.prepare('SELECT * FROM attempts WHERE puzzle_id=? AND email=?').get(puzzleId, emailNorm) as any;
+    if (existing) {
+      return res.status(409).json({
+        error: 'Already attempted',
+        code: 'ALREADY_ATTEMPTED',
+        attempt: sanitizeAttempt(existing),
+      });
+    }
   }
 
   const id = uuidv4();

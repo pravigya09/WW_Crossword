@@ -3,15 +3,17 @@ import { db } from '../db/database.js';
 
 export const leaderboardRouter = Router();
 
+const TEST_EMAIL = (process.env.TEST_EMAIL || 'test@ww.internal').toLowerCase();
+
 // GET /api/leaderboard/:puzzleId
 leaderboardRouter.get('/:puzzleId', (req: Request, res: Response) => {
   const entries = db.prepare(`
     SELECT name, email, score, time_taken_seconds, hints_used, wrong_guesses, completed_at
     FROM attempts
-    WHERE puzzle_id=? AND completed_at IS NOT NULL
+    WHERE puzzle_id=? AND completed_at IS NOT NULL AND email != ?
     ORDER BY score DESC, time_taken_seconds ASC
     LIMIT 100
-  `).all(req.params.puzzleId) as any[];
+  `).all(req.params.puzzleId, TEST_EMAIL) as any[];
 
   const ranked = entries.map((e, i) => ({
     rank: i + 1,
