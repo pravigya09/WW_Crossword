@@ -1,5 +1,18 @@
 const BASE = '/api';
 
+// Railway's proxy strips Set-Cookie, so session auth doesn't work.
+// After login we store the admin token in localStorage and append it
+// as a query param so every admin request is self-authenticated.
+function getAdminToken(): string | null {
+  return localStorage.getItem('ww_admin_token');
+}
+
+function adminPath(path: string): string {
+  const token = getAdminToken();
+  if (!token) return path;
+  return path + (path.includes('?') ? '&' : '?') + 'pw=' + encodeURIComponent(token);
+}
+
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
@@ -14,22 +27,29 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 
 export const api = {
   // Admin
-  adminLogin: (password: string) => req('POST', '/admin/login', { password }),
-  adminLogout: () => req('POST', '/admin/logout'),
-  adminMe: () => req<{ authenticated: boolean }>('GET', '/admin/me'),
-  getClues: () => req<any[]>('GET', '/admin/clues'),
-  addClue: (clue: string, answer: string, hint?: string) => req('POST', '/admin/clues', { clue, answer, hint }),
-  updateClue: (id: string, clue: string, answer: string, hint?: string) => req('PUT', `/admin/clues/${id}`, { clue, answer, hint }),
-  deleteClue: (id: string) => req('DELETE', `/admin/clues/${id}`),
-  generateCrossword: () => req('POST', '/admin/generate'),
+  adminLogin: async (password: string) => {
+    const data = await req<{ ok: boolean; token?: string }>('POST', '/admin/login', { password });
+    if (data.token) localStorage.setItem('ww_admin_token', data.token);
+    return data;
+  },
+  adminLogout: () => {
+    localStorage.removeItem('ww_admin_token');
+    return req('POST', '/admin/logout');
+  },
+  adminMe: () => req<{ authenticated: boolean }>('GET', adminPath('/admin/me')),
+  getClues: () => req<any[]>('GET', adminPath('/admin/clues')),
+  addClue: (clue: string, answer: string, hint?: string) => req('POST', adminPath('/admin/clues'), { clue, answer, hint }),
+  updateClue: (id: string, clue: string, answer: string, hint?: string) => req('PUT', adminPath(`/admin/clues/${id}`), { clue, answer, hint }),
+  deleteClue: (id: string) => req('DELETE', adminPath(`/admin/clues/${id}`)),
+  generateCrossword: () => req('POST', adminPath('/admin/generate')),
   publishPuzzle: (data: {
     title: string; grid: unknown; startAt?: string; endAt?: string;
     timeLimitSeconds?: number; hintMode?: string;
-  }) => req<{ id: string }>('POST', '/admin/puzzles', data),
-  getPuzzles: () => req<any[]>('GET', '/admin/puzzles'),
-  getPuzzleStats: (id: string) => req<any>('GET', `/admin/puzzles/${id}/stats`),
-  deletePuzzle: (id: string) => req('DELETE', `/admin/puzzles/${id}`),
-  updatePuzzle: (id: string, data: object) => req('PUT', `/admin/puzzles/${id}`, data),
+  }) => req<{ id: string }>('POST', adminPath('/admin/puzzles'), data),
+  getPuzzles: () => req<any[]>('GET', adminPath('/admin/puzzles')),
+  getPuzzleStats: (id: string) => req<any>('GET', adminPath(`/admin/puzzles/${id}/stats`)),
+  deletePuzzle: (id: string) => req('DELETE', adminPath(`/admin/puzzles/${id}`)),
+  updatePuzzle: (id: string, data: object) => req('PUT', adminPath(`/admin/puzzles/${id}`), data),
 
   // Puzzles
   getActivePuzzle: () => req<any>('GET', '/puzzles/active'),

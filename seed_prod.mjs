@@ -5,11 +5,13 @@ const PASSWORD = process.argv[2] || 'changeme';
 
 function request(method, path, body) {
   return new Promise((resolve, reject) => {
-    const url = new URL(BASE + path);
+    // Append ?pw=PASSWORD to every admin API call as fallback auth
+    const fullPath = path + (path.includes('?') ? '&' : '?') + 'pw=' + encodeURIComponent(PASSWORD);
+    const url = new URL(BASE + fullPath);
     const data = body ? JSON.stringify(body) : null;
     const opts = {
       hostname: url.hostname,
-      path: url.pathname,
+      path: url.pathname + url.search,
       method,
       headers: {
         'Content-Type': 'application/json',

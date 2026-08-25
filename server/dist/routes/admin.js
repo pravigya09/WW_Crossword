@@ -4,11 +4,15 @@ import { generateCrossword } from '../lib/crossword.js';
 import { v4 as uuidv4 } from 'uuid';
 export const adminRouter = Router();
 function requireAdmin(req, res, next) {
-    // Support both session auth (browser) and header auth (scripts/API)
+    // Support session auth (browser), header auth, or query param auth (scripts)
     if (req.session.adminAuth)
         return next();
+    const expected = process.env.ADMIN_PASSWORD || 'changeme';
     const headerPw = req.headers['x-admin-password'];
-    if (headerPw && headerPw === (process.env.ADMIN_PASSWORD || 'changeme'))
+    if (headerPw && headerPw === expected)
+        return next();
+    const queryPw = req.query['pw'];
+    if (queryPw && queryPw === expected)
         return next();
     res.status(401).json({ error: 'Unauthorized' });
 }
@@ -18,7 +22,7 @@ adminRouter.post('/login', (req, res) => {
     const expected = process.env.ADMIN_PASSWORD || 'changeme';
     if (password === expected) {
         req.session.adminAuth = true;
-        res.json({ ok: true });
+        res.json({ ok: true, token: expected });
     }
     else {
         res.status(401).json({ error: 'Invalid password' });
