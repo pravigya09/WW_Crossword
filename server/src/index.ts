@@ -15,6 +15,9 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Trust Railway's reverse proxy so secure cookies work over HTTPS
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
@@ -29,7 +32,8 @@ app.use(session({
   cookie: {
     secure: !isDev,
     httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    sameSite: isDev ? 'lax' : 'strict',
+    maxAge: 1000 * 60 * 60 * 24,
   },
 }));
 
