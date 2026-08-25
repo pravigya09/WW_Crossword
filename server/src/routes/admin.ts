@@ -6,7 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 export const adminRouter = Router();
 
 function requireAdmin(req: Request, res: Response, next: Function) {
+  // Support both session auth (browser) and header auth (scripts/API)
   if ((req.session as any).adminAuth) return next();
+  const headerPw = req.headers['x-admin-password'];
+  if (headerPw && headerPw === (process.env.ADMIN_PASSWORD || 'changeme')) return next();
   res.status(401).json({ error: 'Unauthorized' });
 }
 
