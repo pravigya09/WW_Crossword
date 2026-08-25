@@ -37,6 +37,7 @@ app.use(session({
   },
 }));
 
+app.get('/api/version', (_req, res) => res.json({ version: 2, headerAuth: true }));
 app.use('/api/admin', adminRouter);
 app.use('/api/puzzles', puzzleRouter);
 app.use('/api/attempts', attemptRouter);
