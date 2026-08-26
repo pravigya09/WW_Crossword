@@ -33,10 +33,11 @@ export function ResultsPage() {
       confettiFired.current = true;
       setTimeout(() => {
         confetti({
-          particleCount: 150,
-          spread: 80,
+          particleCount: 100,
+          spread: 70,
           origin: { y: 0.4 },
           colors: ['#7c3aed', '#4f6ef7', '#06b6d4', '#f59e0b', '#10b981'],
+          disableForReducedMotion: true,
         });
       }, 300);
     }
@@ -62,7 +63,7 @@ export function ResultsPage() {
   const isAlreadyPlayed = true; // We're on results page
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-blue-50 flex items-center justify-center p-4 overflow-x-hidden">
       <div className="w-full max-w-md animate-bounce-in">
         <div className="text-center mb-6">
           <div className="text-6xl mb-3">{isCompleted ? '🎉' : '⏱️'}</div>

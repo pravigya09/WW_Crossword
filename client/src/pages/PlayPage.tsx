@@ -16,44 +16,32 @@ export function PlayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Grid state
   const [filledCells, setFilledCells] = useState<Record<string, string>>({});
   const [correctCells, setCorrectCells] = useState<Set<string>>(new Set());
   const [incorrectCells, setIncorrectCells] = useState<Set<string>>(new Set());
   const [completedWords, setCompletedWords] = useState<Set<string>>(new Set());
   const [revealedHints, setRevealedHints] = useState<Record<string, string>>({});
 
-  // Navigation state
   const [activeWordNumber, setActiveWordNumber] = useState(1);
   const [activeDirection, setActiveDirection] = useState<'across' | 'down'>('across');
   const [activeCell, setActiveCell] = useState<{ row: number; col: number } | null>(null);
 
-  // Game state
   const [startTime] = useState(Date.now());
   const [hintsUsed, setHintsUsed] = useState(0);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [showScoringInfo, setShowScoringInfo] = useState(false);
   const [hintLoading, setHintLoading] = useState(false);
+  const [clueDrawerOpen, setClueDrawerOpen] = useState(false);
 
   const saveProgressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!puzzleId || !attemptId) {
-      navigate('/');
-      return;
-    }
+    if (!puzzleId || !attemptId) { navigate('/'); return; }
     api.getPuzzle(puzzleId!)
-      .then(data => {
-        setPuzzle(data);
-        // Restore progress if any
-        return api.getAttempt(attemptId);
-      })
+      .then(data => { setPuzzle(data); return api.getAttempt(attemptId); })
       .then(attempt => {
-        if (attempt.completedAt) {
-          navigate(`/results/${attemptId}`);
-          return;
-        }
+        if (attempt.completedAt) { navigate(`/results/${attemptId}`); return; }
         if (attempt.progress) {
           setFilledCells(attempt.progress.filledCells || {});
           setCorrectCells(new Set(attempt.progress.correctCells || []));
@@ -64,7 +52,6 @@ export function PlayPage() {
       .finally(() => setLoading(false));
   }, [puzzleId, attemptId, navigate]);
 
-  // Set initial active cell to first word's start
   useEffect(() => {
     if (!puzzle) return;
     const firstWord = puzzle.grid.placedWords
@@ -88,21 +75,15 @@ export function PlayPage() {
     const newFilled = { ...filledCells, [key]: letter };
     if (!letter) delete newFilled[key];
     setFilledCells(newFilled);
-
-    // Remove from incorrect when re-typed
     if (letter && incorrectCells.has(key)) {
-      const s = new Set(incorrectCells);
-      s.delete(key);
-      setIncorrectCells(s);
+      const s = new Set(incorrectCells); s.delete(key); setIncorrectCells(s);
     }
-
     debouncedSave(newFilled, Array.from(correctCells), Array.from(completedWords));
     checkWordCompletion(row, col, newFilled);
   }
 
   function checkWordCompletion(row: number, col: number, filled: Record<string, string>) {
     if (!puzzle) return;
-    // Find words that contain this cell
     const relevantWords = puzzle.grid.placedWords.filter((w: GridWord) => {
       const dr = w.direction === 'down' ? 1 : 0;
       const dc = w.direction === 'across' ? 1 : 0;
@@ -111,17 +92,12 @@ export function PlayPage() {
       }
       return false;
     });
-
     for (const word of relevantWords) {
       const dr = word.direction === 'down' ? 1 : 0;
       const dc = word.direction === 'across' ? 1 : 0;
       let answer = '';
-      for (let i = 0; i < word.length; i++) {
-        answer += filled[`${word.row + dr * i}-${word.col + dc * i}`] || '';
-      }
-      if (answer.length === word.length) {
-        checkAnswer(word, answer);
-      }
+      for (let i = 0; i < word.length; i++) answer += filled[`${word.row + dr * i}-${word.col + dc * i}`] || '';
+      if (answer.length === word.length) checkAnswer(word, answer);
     }
   }
 
@@ -132,33 +108,15 @@ export function PlayPage() {
       const dr = word.direction === 'down' ? 1 : 0;
       const dc = word.direction === 'across' ? 1 : 0;
       const wordCells = Array.from({ length: word.length }, (_, i) => `${word.row + dr * i}-${word.col + dc * i}`);
-
       if (correct) {
-        setCorrectCells(prev => {
-          const s = new Set(prev);
-          wordCells.forEach(k => s.add(k));
-          return s;
-        });
-        setCompletedWords(prev => {
-          const s = new Set(prev);
-          s.add(wordKey);
-          return s;
-        });
+        setCorrectCells(prev => { const s = new Set(prev); wordCells.forEach(k => s.add(k)); return s; });
+        setCompletedWords(prev => { const s = new Set(prev); s.add(wordKey); return s; });
         checkAllComplete();
       } else {
         setWrongGuesses(w => w + 1);
-        setIncorrectCells(prev => {
-          const s = new Set(prev);
-          wordCells.forEach(k => s.add(k));
-          return s;
-        });
-        // Clear incorrect indicators after 1s
+        setIncorrectCells(prev => { const s = new Set(prev); wordCells.forEach(k => s.add(k)); return s; });
         setTimeout(() => {
-          setIncorrectCells(prev => {
-            const s = new Set(prev);
-            wordCells.forEach(k => s.delete(k));
-            return s;
-          });
+          setIncorrectCells(prev => { const s = new Set(prev); wordCells.forEach(k => s.delete(k)); return s; });
         }, 1000);
       }
     } catch {}
@@ -166,13 +124,9 @@ export function PlayPage() {
 
   function checkAllComplete() {
     if (!puzzle) return;
-    // Check if all words are completed
     setTimeout(() => {
       setCompletedWords(prev => {
-        const total = puzzle.grid.placedWords.length;
-        if (prev.size >= total && !completed) {
-          handleComplete();
-        }
+        if (prev.size >= puzzle.grid.placedWords.length && !completed) handleComplete();
         return prev;
       });
     }, 100);
@@ -182,20 +136,14 @@ export function PlayPage() {
     if (completed) return;
     setCompleted(true);
     const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-    try {
-      await api.completeAttempt(attemptId, timeTaken);
-      navigate(`/results/${attemptId}`);
-    } catch {}
+    try { await api.completeAttempt(attemptId, timeTaken); navigate(`/results/${attemptId}`); } catch {}
   }
 
   async function handleTimeExpire() {
     if (completed) return;
     setCompleted(true);
     const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-    try {
-      await api.completeAttempt(attemptId, timeTaken);
-      navigate(`/results/${attemptId}`);
-    } catch {}
+    try { await api.completeAttempt(attemptId, timeTaken); navigate(`/results/${attemptId}`); } catch {}
   }
 
   async function handleHint() {
@@ -204,22 +152,18 @@ export function PlayPage() {
       (w: GridWord) => w.number === activeWordNumber && w.direction === activeDirection
     );
     if (!word) return;
-
     setHintLoading(true);
     try {
       const result = await api.requestHint(attemptId, activeWordNumber, activeDirection);
       setHintsUsed(h => h + 1);
       const key = `${activeWordNumber}-${activeDirection}`;
-
       if (result.hintType === 'letter') {
-        // Reveal first empty letter
         const dr = word.direction === 'down' ? 1 : 0;
         const dc = word.direction === 'across' ? 1 : 0;
         for (let i = 0; i < word.length; i++) {
           const cellKey = `${word.row + dr * i}-${word.col + dc * i}`;
           if (!filledCells[cellKey]) {
-            const newFilled = { ...filledCells, [cellKey]: result.word[i] };
-            setFilledCells(newFilled);
+            setFilledCells(prev => ({ ...prev, [cellKey]: result.word[i] }));
             break;
           }
         }
@@ -235,6 +179,22 @@ export function PlayPage() {
     setActiveDirection(direction);
     const word = puzzle?.grid.placedWords.find((w: GridWord) => w.number === number && w.direction === direction);
     if (word) setActiveCell({ row: word.row, col: word.col });
+  }
+
+  // Navigate to previous/next word (mobile clue bar arrows)
+  function goToAdjacentWord(delta: 1 | -1) {
+    if (!puzzle) return;
+    const allWords: GridWord[] = [...puzzle.grid.placedWords].sort((a: GridWord, b: GridWord) => {
+      if (a.direction !== b.direction) return a.direction === 'across' ? -1 : 1;
+      return a.number - b.number;
+    });
+    const idx = allWords.findIndex(w => w.number === activeWordNumber && w.direction === activeDirection);
+    const next = allWords[(idx + delta + allWords.length) % allWords.length];
+    if (next) {
+      setActiveWordNumber(next.number);
+      setActiveDirection(next.direction);
+      setActiveCell({ row: next.row, col: next.col });
+    }
   }
 
   if (loading) {
@@ -262,26 +222,27 @@ export function PlayPage() {
   const totalWords = words.length;
   const doneCount = completedWords.size;
   const progress = Math.round((doneCount / totalWords) * 100);
+  const activeHint = revealedHints[`${activeWordNumber}-${activeDirection}`];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-blue-50">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-base font-bold text-slate-800 leading-tight">{puzzle.title}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <div className="h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-violet-500 rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className="text-xs text-slate-400">{doneCount}/{totalWords}</span>
+
+      {/* ── Compact sticky header ── */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-slate-100">
+        <div className="px-3 py-2 flex items-center justify-between gap-3">
+          {/* Progress + title */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="h-2 w-20 sm:w-32 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+              <div
+                className="h-full bg-violet-500 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
             </div>
+            <span className="text-xs text-slate-400 tabular-nums flex-shrink-0">{doneCount}/{totalWords}</span>
+            <h1 className="hidden sm:block text-sm font-bold text-slate-700 truncate">{puzzle.title}</h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Timer
               timeLimitSeconds={puzzle.timeLimitSeconds}
               startTime={startTime}
@@ -289,56 +250,137 @@ export function PlayPage() {
             />
             <button
               onClick={() => setShowScoringInfo(s => !s)}
-              className="text-slate-400 hover:text-slate-600 transition-colors text-lg"
+              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
               title="How scoring works"
             >ℹ️</button>
           </div>
         </div>
 
-        {/* Scoring info popover */}
         {showScoringInfo && (
-          <div className="absolute right-4 top-14 bg-white shadow-xl rounded-2xl border border-slate-100 p-4 z-50 w-72 animate-slide-up">
+          <div className="absolute right-3 top-12 bg-white shadow-xl rounded-2xl border border-slate-100 p-4 z-50 w-72 animate-slide-up">
             <h3 className="font-bold text-slate-800 mb-2 text-sm">How scoring works</h3>
             <ul className="space-y-1">
               {copy.scoringExplain.map(s => (
-                <li key={s} className="text-xs text-slate-600 flex gap-2">
-                  <span>•</span><span>{s}</span>
-                </li>
+                <li key={s} className="text-xs text-slate-600 flex gap-2"><span>•</span><span>{s}</span></li>
               ))}
             </ul>
-            <button onClick={() => setShowScoringInfo(false)} className="mt-3 text-xs text-violet-600 font-medium">
-              Got it
-            </button>
+            <button onClick={() => setShowScoringInfo(false)} className="mt-3 text-xs text-violet-600 font-medium">Got it</button>
           </div>
         )}
       </header>
 
-      {/* Mobile active clue bar */}
-      <div className="lg:hidden sticky top-16 z-20 bg-white/95 backdrop-blur border-b border-slate-100 px-4 py-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            {activeWord ? (
-              <p className="text-sm font-medium text-slate-800 truncate">
-                <span className="text-violet-600 font-bold mr-1">{activeWord.number} {activeWord.direction[0].toUpperCase()}.</span>
-                {activeWord.clue}
-              </p>
-            ) : <p className="text-sm text-slate-400">Select a cell</p>}
+      {/* ══════════════════════════════════════════
+          MOBILE LAYOUT  (<md)
+      ══════════════════════════════════════════ */}
+      <div className="md:hidden flex flex-col">
+
+        {/* Grid — full viewport width, no horizontal padding */}
+        <div className="px-2 pt-3 pb-1">
+          <CrosswordGrid
+            cells={gridCells}
+            words={words}
+            answers={{}}
+            filledCells={filledCells}
+            correctCells={correctCells}
+            incorrectCells={incorrectCells}
+            onCellChange={handleCellChange}
+            onWordSelect={handleWordSelect}
+            activeWordNumber={activeWordNumber}
+            activeDirection={activeDirection}
+            activeCell={activeCell}
+            onActiveCell={(r, c) => setActiveCell({ row: r, col: c })}
+            disabled={completed}
+          />
+        </div>
+
+        {/* Active clue bar — prev / clue text / next + hint */}
+        <div className="sticky top-[48px] z-20 bg-white border-t border-b border-slate-100 shadow-sm">
+          <div className="flex items-stretch">
+            {/* Prev word */}
+            <button
+              onClick={() => goToAdjacentWord(-1)}
+              className="px-3 flex items-center text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors text-xl font-light border-r border-slate-100"
+              aria-label="Previous clue"
+            >‹</button>
+
+            {/* Clue text */}
+            <div className="flex-1 min-w-0 px-3 py-2.5">
+              {activeWord ? (
+                <>
+                  <p className="text-sm leading-snug text-slate-800">
+                    <span className="text-violet-600 font-bold mr-1">
+                      {activeWord.number}{activeWord.direction === 'across' ? 'A' : 'D'}.
+                    </span>
+                    {activeWord.clue}
+                  </p>
+                  {activeHint && (
+                    <p className="text-xs text-amber-600 mt-0.5">💡 {activeHint}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-slate-400">Tap a cell to begin</p>
+              )}
+            </div>
+
+            {/* Next word */}
+            <button
+              onClick={() => goToAdjacentWord(1)}
+              className="px-3 flex items-center text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors text-xl font-light border-l border-r border-slate-100"
+              aria-label="Next clue"
+            >›</button>
+
+            {/* Hint */}
+            <button
+              onClick={handleHint}
+              disabled={hintLoading || !activeWord || completed}
+              className="px-3 flex items-center gap-1 text-amber-600 hover:bg-amber-50 transition-colors text-sm font-semibold disabled:opacity-40"
+              aria-label="Get hint"
+            >
+              <span>💡</span>
+              <span className="text-xs text-amber-500">{copy.hintCost}</span>
+            </button>
           </div>
+        </div>
+
+        {/* Stats row */}
+        {(wrongGuesses > 0 || hintsUsed > 0) && (
+          <div className="px-4 py-1.5 text-xs text-slate-400 flex gap-3 bg-white border-b border-slate-50">
+            {wrongGuesses > 0 && <span>{wrongGuesses} wrong guess{wrongGuesses !== 1 ? 'es' : ''}</span>}
+            {hintsUsed > 0 && <span>{hintsUsed} hint{hintsUsed !== 1 ? 's' : ''} used</span>}
+          </div>
+        )}
+
+        {/* Collapsible clue drawer */}
+        <div className="bg-white border-b border-slate-100">
           <button
-            onClick={handleHint}
-            disabled={hintLoading || !activeWord}
-            className="flex-shrink-0 text-xs btn bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 px-3 py-1.5"
+            onClick={() => setClueDrawerOpen(o => !o)}
+            className="w-full px-4 py-2.5 flex items-center justify-between text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
           >
-            💡 Hint <span className="text-amber-500 ml-1">{copy.hintCost}</span>
+            <span>View all clues</span>
+            <span className="text-slate-400 text-xs">{clueDrawerOpen ? '▲' : '▼'}</span>
           </button>
+          {clueDrawerOpen && (
+            <div className="px-4 pb-3 max-h-64 overflow-y-auto border-t border-slate-100">
+              <ClueList
+                words={words}
+                activeWordNumber={activeWordNumber}
+                activeDirection={activeDirection}
+                completedWords={completedWords}
+                onSelect={(num, dir) => { handleWordSelect(num, dir); setClueDrawerOpen(false); }}
+                hints={revealedHints}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Main layout */}
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+      {/* ══════════════════════════════════════════
+          DESKTOP LAYOUT  (md+)
+      ══════════════════════════════════════════ */}
+      <main className="hidden md:block max-w-6xl mx-auto px-4 py-6">
+        <div className="flex gap-6 items-start">
           {/* Grid */}
-          <div className="flex-shrink-0 flex flex-col items-center">
+          <div className="flex-shrink-0 w-full max-w-lg">
             <CrosswordGrid
               cells={gridCells}
               words={words}
@@ -354,30 +396,29 @@ export function PlayPage() {
               onActiveCell={(r, c) => setActiveCell({ row: r, col: c })}
               disabled={completed}
             />
-
-            {/* Hint button below grid on mobile */}
-            <div className="mt-4 text-center text-xs text-slate-400">
-              {wrongGuesses > 0 && <span>{wrongGuesses} wrong guess{wrongGuesses > 1 ? 'es' : ''} · </span>}
-              {hintsUsed > 0 && <span>{hintsUsed} hint{hintsUsed > 1 ? 's' : ''} used</span>}
+            <div className="mt-3 text-center text-xs text-slate-400">
+              {wrongGuesses > 0 && <span>{wrongGuesses} wrong guess{wrongGuesses !== 1 ? 'es' : ''} · </span>}
+              {hintsUsed > 0 && <span>{hintsUsed} hint{hintsUsed !== 1 ? 's' : ''} used</span>}
             </div>
           </div>
 
-          {/* Sidebar: clue list + hint button (desktop) */}
+          {/* Sidebar */}
           <div className="flex-1 min-w-0">
-            <div className="hidden lg:flex items-start justify-between mb-3">
-              <div>
+            <div className="flex items-start justify-between mb-3 gap-3">
+              <div className="flex-1 min-w-0">
                 {activeWord && (
-                  <div className="mb-3 p-3 bg-violet-50 rounded-xl border border-violet-100">
+                  <div className="p-3 bg-violet-50 rounded-xl border border-violet-100">
                     <p className="text-sm font-semibold text-violet-900">
                       {activeWord.number} {activeWord.direction} — {activeWord.clue}
                     </p>
+                    {activeHint && <p className="text-xs text-amber-600 mt-1">💡 {activeHint}</p>}
                   </div>
                 )}
               </div>
               <button
                 onClick={handleHint}
-                disabled={hintLoading || !activeWord}
-                className="flex-shrink-0 btn bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 text-sm ml-3"
+                disabled={hintLoading || !activeWord || completed}
+                className="flex-shrink-0 btn bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 text-sm"
               >
                 💡 {copy.hintButton} <span className="text-amber-500">{copy.hintCost}</span>
               </button>

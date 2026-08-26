@@ -18,9 +18,9 @@ export interface CellState {
 interface Props {
   cells: (CellState | null)[][];
   words: GridWord[];
-  answers: Record<string, string>;     // key: "number-direction" → full word string
-  filledCells: Record<string, string>; // key: "row-col" → letter
-  correctCells: Set<string>;           // "row-col" keys
+  answers: Record<string, string>;
+  filledCells: Record<string, string>;
+  correctCells: Set<string>;
   incorrectCells: Set<string>;
   onCellChange: (row: number, col: number, letter: string) => void;
   onWordSelect: (wordNumber: number, direction: 'across' | 'down') => void;
@@ -38,6 +38,24 @@ export function CrosswordGrid({
 }: Props) {
   const size = cells.length;
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  // Measure container width so the grid fills all available space
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    obs.observe(containerRef.current);
+    setContainerWidth(containerRef.current.getBoundingClientRect().width);
+    return () => obs.disconnect();
+  }, []);
+
+  const cellSize = Math.max(
+    Math.floor((containerWidth || window.innerWidth - 32) / size),
+    28
+  );
 
   const getWordAt = useCallback((row: number, col: number, dir: 'across' | 'down') => {
     return words.find(w => {
@@ -53,13 +71,11 @@ export function CrosswordGrid({
   const getWordCells = useCallback((wordNumber: number, dir: 'across' | 'down') => {
     const w = words.find(x => x.number === wordNumber && x.direction === dir);
     if (!w) return new Set<string>();
-    const cells = new Set<string>();
+    const s = new Set<string>();
     const dr = w.direction === 'down' ? 1 : 0;
     const dc = w.direction === 'across' ? 1 : 0;
-    for (let i = 0; i < w.length; i++) {
-      cells.add(`${w.row + dr * i}-${w.col + dc * i}`);
-    }
-    return cells;
+    for (let i = 0; i < w.length; i++) s.add(`${w.row + dr * i}-${w.col + dc * i}`);
+    return s;
   }, [words]);
 
   const activeWordCells = getWordCells(activeWordNumber, activeDirection);
@@ -72,15 +88,11 @@ export function CrosswordGrid({
   function handleCellClick(row: number, col: number) {
     if (!cells[row][col]) return;
     if (activeCell?.row === row && activeCell?.col === col) {
-      // Toggle direction
       const newDir = activeDirection === 'across' ? 'down' : 'across';
       const word = getWordAt(row, col, newDir);
-      if (word) {
-        onWordSelect(word.number, newDir);
-      }
+      if (word) onWordSelect(word.number, newDir);
     } else {
       onActiveCell(row, col);
-      // Find word in current direction first, then other
       const wordInDir = getWordAt(row, col, activeDirection);
       if (wordInDir) {
         onWordSelect(wordInDir.number, activeDirection);
@@ -96,21 +108,15 @@ export function CrosswordGrid({
   function advanceCell(row: number, col: number, dir: 'across' | 'down') {
     const dr = dir === 'down' ? 1 : 0;
     const dc = dir === 'across' ? 1 : 0;
-    const nr = row + dr;
-    const nc = col + dc;
-    if (nr < size && nc < size && cells[nr]?.[nc]) {
-      onActiveCell(nr, nc);
-    }
+    const nr = row + dr; const nc = col + dc;
+    if (nr < size && nc < size && cells[nr]?.[nc]) onActiveCell(nr, nc);
   }
 
   function retreatCell(row: number, col: number, dir: 'across' | 'down') {
     const dr = dir === 'down' ? 1 : 0;
     const dc = dir === 'across' ? 1 : 0;
-    const nr = row - dr;
-    const nc = col - dc;
-    if (nr >= 0 && nc >= 0 && cells[nr]?.[nc]) {
-      onActiveCell(nr, nc);
-    }
+    const nr = row - dr; const nc = col - dc;
+    if (nr >= 0 && nc >= 0 && cells[nr]?.[nc]) onActiveCell(nr, nc);
   }
 
   function handleKey(e: React.KeyboardEvent) {
@@ -126,25 +132,14 @@ export function CrosswordGrid({
       }
       return;
     }
-
-    if (e.key === 'Delete') {
-      e.preventDefault();
-      onCellChange(row, col, '');
-      return;
-    }
+    if (e.key === 'Delete') { e.preventDefault(); onCellChange(row, col, ''); return; }
 
     if (e.key === 'Tab' || e.key === 'Enter') {
       e.preventDefault();
-      // Jump to next word
-      const wordList = words
-        .filter(w => w.direction === activeDirection)
-        .sort((a, b) => a.number - b.number);
+      const wordList = words.filter(w => w.direction === activeDirection).sort((a, b) => a.number - b.number);
       const idx = wordList.findIndex(w => w.number === activeWordNumber);
       const next = wordList[(idx + 1) % wordList.length];
-      if (next) {
-        onWordSelect(next.number, next.direction);
-        onActiveCell(next.row, next.col);
-      }
+      if (next) { onWordSelect(next.number, next.direction); onActiveCell(next.row, next.col); }
       return;
     }
 
@@ -154,8 +149,7 @@ export function CrosswordGrid({
     if (arrowMap[e.key]) {
       e.preventDefault();
       const [dr, dc] = arrowMap[e.key];
-      const nr = row + dr;
-      const nc = col + dc;
+      const nr = row + dr; const nc = col + dc;
       if (nr >= 0 && nr < size && nc >= 0 && nc < size && cells[nr]?.[nc]) {
         onActiveCell(nr, nc);
         const newDir: 'across' | 'down' = dc !== 0 ? 'across' : 'down';
@@ -173,29 +167,40 @@ export function CrosswordGrid({
     }
   }
 
-  // Calculate cell size responsively
-  const maxCellSize = Math.min(
-    Math.floor((typeof window !== 'undefined' ? Math.min(window.innerWidth - 32, 480) : 480) / size),
-    36
-  );
-  const cellSize = Math.max(maxCellSize, 22);
+  // Mobile keyboards often fire onChange/input events instead of keydown
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const data = (e.nativeEvent as InputEvent).data;
+    if (data && /^[a-zA-Z]$/.test(data) && activeCell) {
+      onCellChange(activeCell.row, activeCell.col, data.toUpperCase());
+      advanceCell(activeCell.row, activeCell.col, activeDirection);
+    }
+    // Reset so next keystroke fires onChange again
+    e.target.value = '';
+  }
 
   return (
-    <div className="relative">
+    // Full-width container; overflow-auto enables grid-level pan when zoomed
+    <div ref={containerRef} className="w-full overflow-auto" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
       <input
         ref={inputRef}
         className="absolute opacity-0 w-0 h-0 pointer-events-none"
-        readOnly
+        inputMode="text"
+        autoCapitalize="characters"
+        autoCorrect="off"
+        autoComplete="off"
+        spellCheck={false}
         onKeyDown={handleKey}
+        onChange={handleChange}
+        defaultValue=""
         aria-hidden="true"
       />
       <div
-        className="grid border-2 border-slate-800 rounded overflow-hidden shadow-md"
+        className="border-2 border-slate-800 rounded overflow-hidden shadow-md mx-auto"
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${size}, ${cellSize}px)`,
           gridTemplateRows: `repeat(${size}, ${cellSize}px)`,
-          width: `${size * cellSize + 2}px`,
+          width: `${size * cellSize + 4}px`,
         }}
         onClick={() => inputRef.current?.focus()}
       >
@@ -229,7 +234,7 @@ export function CrosswordGrid({
                   isIncorrect && !isCorrect ? 'incorrect' : '',
                   disabled ? 'cursor-default' : ''
                 )}
-                style={{ width: cellSize, height: cellSize }}
+                style={{ width: cellSize, height: cellSize, touchAction: 'manipulation' }}
                 onClick={() => !disabled && handleCellClick(rIdx, cIdx)}
               >
                 {num && (
@@ -237,10 +242,7 @@ export function CrosswordGrid({
                     {num}
                   </span>
                 )}
-                <span
-                  className="cell-letter"
-                  style={{ fontSize: Math.max(10, cellSize * 0.5) }}
-                >
+                <span className="cell-letter" style={{ fontSize: Math.max(10, cellSize * 0.5) }}>
                   {letter}
                 </span>
               </div>

@@ -35,6 +35,7 @@
 /* Crossword grid */
 .crossword-cell {
   @apply relative flex items-center justify-center border border-slate-300 cursor-pointer select-none transition-colors duration-100;
+  touch-action: manipulation; /* prevent double-tap zoom on cells */
 }
 
 .crossword-cell.active {
@@ -64,4 +65,14 @@
 /* Mobile keyboard helper */
 .mobile-clue-bar {
   @apply fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 z-40;
+}
+
+/* Safe-area bottom padding for notched phones */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Ensure no horizontal overflow at page level */
+html, body {
+  overflow-x: hidden;
 }
