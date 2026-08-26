@@ -183,7 +183,13 @@ export function CrosswordGrid({
     <div ref={containerRef} className="w-full overflow-auto" style={{ touchAction: 'pan-x pan-y pinch-zoom' }}>
       <input
         ref={inputRef}
-        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+        className="fixed"
+        style={{
+          top: 0, left: '-9999px',
+          width: '1px', height: '1px',
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
         inputMode="text"
         autoCapitalize="characters"
         autoCorrect="off"
@@ -235,6 +241,12 @@ export function CrosswordGrid({
                   disabled ? 'cursor-default' : ''
                 )}
                 style={{ width: cellSize, height: cellSize, touchAction: 'manipulation' }}
+                onTouchEnd={(e) => {
+                  if (disabled) return;
+                  e.preventDefault(); // prevent the 300ms delay + ghost click
+                  handleCellClick(rIdx, cIdx);
+                  inputRef.current?.focus();
+                }}
                 onClick={() => !disabled && handleCellClick(rIdx, cIdx)}
               >
                 {num && (
